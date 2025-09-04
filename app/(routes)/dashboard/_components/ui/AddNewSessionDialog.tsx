@@ -1,0 +1,115 @@
+"use client"
+import React, { useState } from 'react'
+import {
+Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
+} from "@/components/ui/dialog"
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { ArrowRight, Loader, Loader2 } from 'lucide-react'
+import axios from 'axios'
+import DoctorAgentCard, { doctorAgent } from './DoctorAgentCard'
+import SuggestedDoctorsCard from './SuggestedDoctorsCard'
+import { useRouter } from 'next/navigation'
+
+function AddNewSessionDialog() {
+    const router = useRouter()
+    const [note, setNote] = useState<string>();
+    const [loading, setLoading] = useState(false);
+    const [suggestedDoctors, setSuggestedDoctors] = useState<doctorAgent[]>([])
+   const OnClickNext = async () => {
+  try {
+    setLoading(true);
+    const result = await axios.post('/api/suggest-doctors', { notes: note });
+   
+    setSuggestedDoctors(result.data)
+     console.log(result.data);
+  } catch (err) {
+    console.error("API error", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const [selectedDoctor, setSelectedDoctor] = useState<doctorAgent>()
+const onStartConsultation = async () => {
+  setLoading(true)
+  try {
+    const result = await axios.post('/api/session-chat', {
+      notes: note,
+      selectedDoctor: selectedDoctor
+    });
+    console.log(result.data)
+    if (result.data?.sessionId) {
+      console.log(result.data.sessionId);
+      router.push(`/dashboard/medical-agent/${result.data.sessionId}`)
+    }
+  } catch (error) {
+    console.error(error)
+  } finally {
+    setLoading(false)
+  }
+}
+  return (
+    <Dialog>
+        <DialogTrigger>  <Button className='mt-3'> + Start a Consultation</Button></DialogTrigger>
+    <DialogContent>
+        <DialogHeader>
+
+            <DialogTitle>
+              Add information about your request.
+            </DialogTitle>
+
+           <DialogDescription asChild>
+  { suggestedDoctors.length === 0 ? (
+    <div>
+      <h2>Add Symptoms or Any Other Information.</h2>
+      <Textarea
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Add Information here..."
+        className="h-[200px] mt-3"
+      />
+    </div>
+  ) : (
+    <>
+      {loading ? (
+        <Loader2 className="animate-spin" />
+      ) : (
+        <div>
+          <h2>Select the doctor</h2>
+          <div className="grid grid-cols-3 gap-5">
+            {suggestedDoctors.map((doctor, index) => (
+              <SuggestedDoctorsCard
+                setSelectedDoctor={() => setSelectedDoctor(doctor)}
+                key={index}
+                doctorAgent={doctor}
+                //@ts-ignore
+                selectedDoctor={selectedDoctor}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )}
+</DialogDescription>
+
+        </DialogHeader>
+
+        <DialogFooter>
+            <DialogClose><Button variant="outline">Cancel</Button></DialogClose>
+            
+           { suggestedDoctors.length === 0 ?  (<Button disabled={!note||loading} onClick={OnClickNext}>
+              
+                Next  {loading?<Loader2 className='animate-spin'/>: <ArrowRight /> }</Button>):(
+                    <Button disabled={loading || !selectedDoctor} onClick={()=>onStartConsultation()}>Start Consultation
+                     {loading?<Loader2 className='animate-spin'/>: <ArrowRight /> }
+                    </Button>
+                )}
+        </DialogFooter>
+
+    </DialogContent>
+    </Dialog>
+  )
+}
+
+export default AddNewSessionDialog
